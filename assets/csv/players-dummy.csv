@@ -1,0 +1,13 @@
+user_id,email,contact_number,password_hash,is_verified,account_type,created_at,updated_at
+player-1,johndoe@example.com,09123456789,$2b$12$abcdef,true,Player,2004-02-21T10:00:00,2004-02-21T10:00:00
+player-2,janesmith@example.com,09234567890,$2b$12$uvwxyz,false,Player,2004-02-21T10:00:00,2004-02-21T10:00:00
+player-3,michaelbrown@example.com,09345678901,$2b$12$123456,true,Player,2004-02-21T10:00:00,2004-02-21T10:00:00
+player-4,sarawilson@example.com,09456789012,$2b$12$789abc,false,Player,2004-02-21T10:00:00,2004-02-21T10:00:00
+player-5,davidlee@example.com,09567890123,$2b$12$xyz987,true,Player,2004-02-21T10:00:00,2004-02-21T10:00:00
+
+player_id,user_id,first_name,last_name,gender,birth_date,barangay_name,municipality_name,jersey_name,jersey_number,position,height_in,weight_kg,games_played,points_scored,assists,rebounds,profile_image_url,document_url_1,document_url_2,created_at,updated_at
+P001,player-1,Mark,De Leon,Male,2002-08-12,Anapog,San Remigio,MDELEON,12,Point Guard,69,155,28,305,98,85,http://example.com/profile1.jpg,http://example.com/doc1.pdf,http://example.com/doc2.pdf,2025-06-15 10:40:00+08,2025-06-15 10:40:00+08
+P002,player-2,Angela,Ramos,Female,2001-04-25,Poblacion,San Remigio,ARAMOS,7,Shooting Guard,67,145,31,330,110,95,http://example.com/profile2.jpg,http://example.com/doc1.pdf,http://example.com/doc2.pdf,2025-06-15 10:40:00+08,2025-06-15 10:40:00+08
+P003,player-3,Ricardo,Mendoza,Male,2000-11-07,Tambongon,San Remigio,RMENDOZA,20,Small Forward,73,180,33,360,112,125,http://example.com/profile3.jpg,http://example.com/doc1.pdf,http://example.com/doc2.pdf,2025-06-15 10:40:00+08,2025-06-15 10:40:00+08
+P004,player-4,Jasmine,Villanueva,Female,2003-06-19,Lamintak Norte,San Remigio,JVILLA,9,Power Forward,71,165,29,315,108,102,http://example.com/profile4.jpg,http://example.com/doc1.pdf,http://example.com/doc2.pdf,2025-06-15 10:40:00+08,2025-06-15 10:40:00+08
+P005,player-5,Francis,Lagman,Male,1999-02-03,Bancasan,San Remigio,FLAGMAN,14,Center,76,195,35,420,130,145,http://example.com/profile5.jpg,http://example.com/doc1.pdf,http://example.com/doc2.pdf,2025-06-15 10:40:00+08,2025-06-15 10:40:00+08

@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+
+# VS Code settings (if you're using it)
+.vscode/
+
+# macOS files
+.DS_Store
+
+# Logs
+*.log
+
+# Test outputs or coverage
+htmlcov/
+*.cover
+coverage.xml
+*.pytest_cache/
+.cache/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+firebase_credentials.json
+client_secret_1096824162917-favlhknhmfk255b0dv4paug9biss3get.apps.googleusercontent.com.json
