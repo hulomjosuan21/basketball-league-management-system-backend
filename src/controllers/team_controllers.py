@@ -1,3 +1,4 @@
+from src.models.league_model import LeagueTeamModel
 from src.utils.enums import NotificationAction
 from src.models.notification_model import NotificationModel
 from src.utils.db_utils import AccountTypeEnum, get_new_session
@@ -35,8 +36,32 @@ class TeamControllers:
             return ApiResponse.success(payload=payload)
         except Exception as e:
             return ApiResponse.error(f"Error fetching teams for user {user_id}: {str(e)}")
-
         
+    def get_user_teams_for_league(self, league_id, user_id):
+        try:
+            teams = TeamModel.query.filter_by(user_id=user_id).all()
+
+            league_teams = LeagueTeamModel.query.filter_by(league_id=league_id).all()
+
+            league_team_map = {lt.team_id: lt.status for lt in league_teams}
+
+            result = []
+
+            for team in teams:
+                status = league_team_map.get(team.team_id)
+                already_in = status is not None
+
+                team_data = team.to_json_for_join_league()
+                team_data["already_in"] = already_in
+                team_data["status"] = status
+
+                result.append(team_data)
+
+            return ApiResponse.success(payload=result)
+
+        except Exception as e:
+            return ApiResponse.error(str(e))
+
     async def create_team(self):
         try:
             user_id = request.form.get('user_id')

@@ -1,3 +1,4 @@
+from src.models.images_model import Image
 from src.extensions import db, ph
 from src.utils.db_utils import CreatedAt, UUIDGenerator, UpdatedAt
 
@@ -22,6 +23,13 @@ class PlayerModel(db.Model):
         nullable=False
     )
 
+    @property
+    def document_photo(self):
+        return Image.query.filter_by(
+            entity_id=self.player_id,
+            tag='valid-docs'
+        ).all() or []
+
     jersey_name = db.Column(db.String(1000), nullable=False)
     jersey_number = db.Column(db.Float, nullable=False)
     position = db.Column(db.String(250), nullable=False)
@@ -35,8 +43,6 @@ class PlayerModel(db.Model):
     rebounds = db.Column(db.Integer, default=0, nullable=False)
 
     profile_image_url = db.Column(db.String(1000), nullable=False)
-    document_url_1 = db.Column(db.String(1000), nullable=True)
-    document_url_2 = db.Column(db.String(1000), nullable=True)
 
     is_ban = db.Column(db.Boolean, nullable=False, default=False)
     is_allowed = db.Column(db.Boolean, nullable=False, default=True)
@@ -68,11 +74,12 @@ class PlayerModel(db.Model):
             "weight_kg": float(self.weight_kg) if self.weight_kg is not None else None,
             "games_played": int(self.games_played),
             "points_scored": int(self.points_scored),
+            "document_photos":[
+                image.to_json() for image in self.document_photo
+            ],
             "assists": int(self.assists),
             "rebounds": int(self.rebounds),
             "profile_image_url": self.profile_image_url,
-            "document_url_1": self.document_url_1 if self.created_at else None,
-            "document_url_2": self.document_url_2 if self.created_at else None,
             "user": self.user.to_json() if self.user else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

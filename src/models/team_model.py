@@ -79,7 +79,6 @@ class TeamModel(db.Model, UpdatableMixin):
         db.ForeignKey('users_table.user_id', ondelete='CASCADE'),
         nullable=False
     )
-    # Many-to-One
     user = db.relationship('UserModel', back_populates='teams', single_parent=True)
 
     active_league_id = db.Column(db.String, db.ForeignKey('leagues_table.league_id'))
@@ -137,6 +136,16 @@ class TeamModel(db.Model, UpdatableMixin):
             'detail': detail
         }
 
+    def to_json_for_join_league(self):
+        return {
+            "team_id": self.team_id,
+            "user_id": self.user_id,
+            "team_name": self.team_name,
+            "team_logo_url": self.team_logo_url if self.team_logo_url else None,
+            "already_in": None,
+            "status": None
+        }
+
     def to_json(self):
         # players = [player.to_json_for_team() for player in self.players] if self.players else []
         players = [player.to_json_for_team() for player in self.players if player.is_accepted == 'Accepted'] if self.players else []
@@ -162,7 +171,6 @@ class TeamModel(db.Model, UpdatableMixin):
             "updated_at": self.updated_at.isoformat(),
         }
     
-    # Many-to-Many
     players = db.relationship(
         'PlayerTeamModel',
         back_populates='team',
@@ -179,7 +187,6 @@ class TeamModel(db.Model, UpdatableMixin):
         cascade='all, delete-orphan'
     )
 
-    # use for founded_at
     created_at = CreatedAt(db)
     updated_at = UpdatedAt(db)
 
