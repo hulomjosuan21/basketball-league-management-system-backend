@@ -1,8 +1,9 @@
 from src.models.images_model import Image
 from src.extensions import db, ph
 from src.utils.db_utils import CreatedAt, UUIDGenerator, UpdatedAt
+from src.utils.mixins import UpdatableMixin
 
-class PlayerModel(db.Model):
+class PlayerModel(db.Model, UpdatableMixin):
     __tablename__ = 'players_table'
 
     player_id = UUIDGenerator(db,'player')
