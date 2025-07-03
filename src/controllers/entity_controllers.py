@@ -10,7 +10,7 @@ from src.extensions import db
 from flask import request
 from src.models.user_model import UserModel
 from src.utils.db_utils import AccountTypeEnum
-
+from flask_jwt_extended import set_access_cookies
 class EntityControllers:
     async def create_team_creator(self):
         try:
@@ -205,7 +205,16 @@ class EntityControllers:
                 'user_id': user.user_id
             }
 
-            return ApiResponse.success(redirect=redirect,message="Login successful.",payload=payload)
+            response = ApiResponse.success(
+                redirect=redirect,
+                message="Login successful.",
+                payload=payload
+            )
+
+            if stay_login and access_token:
+                set_access_cookies(response, access_token)
+
+            return response
         except Exception as e:
             return ApiResponse.error(e)
         
