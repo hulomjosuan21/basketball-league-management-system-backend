@@ -9,6 +9,7 @@ leagueControllers = LeagueControllers()
 
 league_bp.get('/fetch')(leagueControllers.filter_leagues_by_organization_details)
 league_bp.get('/get-league-team/<string:league_team_id>')(leagueControllers.get_league_team)
+league_bp.get('/get-league-meta/<string:league_administrator_id>')(leagueControllers.fetch_league_meta)
 league_bp.get('/category-list')(league_categories)
 
 league_bp.post('/create-new')(leagueControllers.create_league)

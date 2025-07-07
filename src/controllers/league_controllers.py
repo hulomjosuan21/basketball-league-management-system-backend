@@ -64,7 +64,8 @@ class LeagueControllers:
             league_administrator_id = form.get('league_administrator_id')
             league_title = form.get('league_title')
             league_description = form.get('league_description')
-            league_budget = form.get('league_budget')
+            league_budget_str = request.form.get('league_budget')
+            league_budget = float(league_budget_str)
             registration_deadline = form.get('registration_deadline')
             opening_date = form.get('opening_date')
             start_date = form.get('start_date')
@@ -104,7 +105,7 @@ class LeagueControllers:
                 league_administrator_id=league_administrator_id,
                 league_title=league_title,
                 league_description=league_description,
-                league_budget=float(league_budget),
+                league_budget=league_budget,
                 registration_deadline=datetime.fromisoformat(registration_deadline),
                 opening_date=datetime.fromisoformat(opening_date),
                 start_date=datetime.fromisoformat(start_date),
@@ -358,6 +359,16 @@ class LeagueControllers:
             )
 
             return ApiResponse.success(payload=details)
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+        
+    def fetch_league_meta(self, league_administrator_id: str):
+        try:
+            payload = {
+                "has_league": True
+            }
+            return ApiResponse.success(payload=payload)
         except Exception as e:
             db.session.rollback()
             return ApiResponse.error(str(e))

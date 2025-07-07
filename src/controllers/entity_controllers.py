@@ -11,6 +11,8 @@ from flask import request
 from src.models.user_model import UserModel
 from src.utils.db_utils import AccountTypeEnum
 from flask_jwt_extended import set_access_cookies
+from flask_cors import cross_origin
+
 class EntityControllers:
     async def create_team_creator(self):
         try:
@@ -217,6 +219,65 @@ class EntityControllers:
             return response
         except Exception as e:
             return ApiResponse.error(e)
+    
+    @cross_origin(origins=["http://localhost:3000"], supports_credentials=True)
+    def admin_login(self):
+        try:
+            stay_login = str(request.args.get('stay_login', 'true')).lower() == 'true'
+            email = request.form.get('email')
+            password_str = request.form.get('password_str')
+
+            if not email or not password_str:
+                raise ValueError("Missing required fields: email, password")
+
+            user = UserModel.query.filter(UserModel.email == email).first()
+
+            if not user or not user.verify_password(password_str):
+                raise AuthException("Invalid email or password.", 401)
+
+            if not user.is_verified:
+                raise AuthException("Your account is not verified.", 403)
+            
+            account_type = str(user.account_type)
+            match account_type:
+                case AccountTypeEnum.LOCAL_ADMINISTRATOR.value | AccountTypeEnum.LGU_ADMINISTRATOR.value:
+                    entity = LeagueAdministratorModel.query.filter_by(user_id=user.user_id).first()
+                    redirect = '/league-administrator/pages/dashboard'
+                case _:
+                    raise ValueError(f"Unknown account type {account_type}")         
+                
+            additional_claims = {
+                "account_type": str(account_type),
+                "league_administrator_id": entity.league_administrator_id
+            }
+
+            access_token = None
+            if stay_login:
+                access_token = create_access_token(
+                    identity=user.user_id,
+                    additional_claims=additional_claims,
+                    expires_delta=timedelta(weeks=1)
+                )
+
+            payload = {
+                'access_token': access_token,
+                'entity': entity.to_json(),
+                'account_type': account_type,
+                'user_id': user.user_id
+            }
+
+            response = ApiResponse.success(
+                redirect=redirect,
+                message="Login successful.",
+                payload=payload
+            )
+
+            if stay_login and access_token:
+                set_access_cookies(response, access_token)
+
+            return response
+        except Exception as e:
+            return ApiResponse.error(e)       
         
     def fetch_entity(self, user_id):
         try:
