@@ -32,3 +32,4 @@ dist/
 
 firebase_credentials.json
 client_secret_1096824162917-favlhknhmfk255b0dv4paug9biss3get.apps.googleusercontent.com.json
+Makefile

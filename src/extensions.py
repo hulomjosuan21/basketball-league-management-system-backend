@@ -14,13 +14,14 @@ from flask import current_app, Flask
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from apscheduler.schedulers.background import BackgroundScheduler
+redis_url = os.getenv("REDIS_URL", "memory://")
 
 load_dotenv()
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 print(f"Base Directory: {BASE_DIR}")
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri="redis://localhost:6379",
+    storage_uri=redis_url,
     default_limits=["1000 per hour", "5000 per day"],
     headers_enabled=True
 )
@@ -31,7 +32,7 @@ migrate = Migrate()
 jwt = JWTManager()
 socketio = SocketIO(
     async_mode='eventlet',
-    message_queue='redis://localhost:6379/',
+    message_queue=redis_url,
     cors_allowed_origins="*",
     logger=True,
     engineio_logger=True
