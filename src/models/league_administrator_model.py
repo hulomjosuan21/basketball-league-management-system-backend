@@ -21,6 +21,16 @@ class LeagueAdministratorModel(db.Model):
         nullable=False
     )
 
+    @property
+    def active_league(self):
+        return next(
+            (
+                league for league in self.created_leagues
+                if league.status not in ('Completed', 'Postponed', 'Cancelled')
+            ),
+            None
+        )
+
     organization_name = db.Column(
         db.String(200),
         nullable=False

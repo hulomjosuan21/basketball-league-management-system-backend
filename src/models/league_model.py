@@ -3,6 +3,34 @@ from src.utils.db_utils import CreatedAt, UUIDGenerator, UpdatedAt
 from src.extensions import db
 from datetime import datetime
 from copy import deepcopy
+from sqlalchemy.dialects.postgresql import JSONB
+from src.utils.mixins import UpdatableMixin
+
+class LeagueResourceModel(db.Model, UpdatableMixin):
+    __tablename__ = 'league_resource_table'
+    league_resource_id = UUIDGenerator(db, 'league_resource')
+
+    league_id = db.Column(
+        db.String,
+        db.ForeignKey('leagues_table.league_id', ondelete='CASCADE'),
+        nullable=False
+    )
+
+    league_courts = db.Column(JSONB, nullable=True)
+    league_referees = db.Column(JSONB, nullable=True)
+
+    def to_json(self):
+        return {
+            "league_resource_id": self.league_resource_id,
+            "league_id": self.league_id,
+            "league_courts": self.league_courts or [],
+            "league_referees": self.league_referees or [],
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
+        }
+
+    created_at = CreatedAt(db)
+    updated_at = UpdatedAt(db)
 
 class LeagueModel(db.Model):
     __tablename__ = 'leagues_table'
@@ -77,6 +105,13 @@ class LeagueModel(db.Model):
 
             safe_value = deepcopy(value) if isinstance(value, (dict, list)) else value
             setattr(self, key, safe_value)
+            
+    def to_meta_json(self) -> dict:
+        return {
+            "league_id": self.league_id,
+            "league_title": self.league_title,
+            "status": self.status,
+        }
 
     def to_json(self) -> dict:
         return {

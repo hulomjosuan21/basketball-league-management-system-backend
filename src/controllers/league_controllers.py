@@ -1,7 +1,7 @@
 from flask import request
 from src.models.audit_log_model import AuditLogModel
 from src.models.league_administrator_model import LeagueAdministratorModel
-from src.models.league_model import LeagueModel, LeagueCategoryModel, LeaguePlayerModel, LeagueTeamModel
+from src.models.league_model import LeagueModel, LeagueCategoryModel, LeaguePlayerModel, LeagueResourceModel, LeagueTeamModel
 from src.models.team_model import PlayerTeamModel, TeamModel
 from src.utils.api_response import ApiResponse
 from src.extensions import db
@@ -365,10 +365,106 @@ class LeagueControllers:
         
     def fetch_league_meta(self, league_administrator_id: str):
         try:
+            league_admin = db.session.get(LeagueAdministratorModel, league_administrator_id)
+            if not league_admin:
+                return ApiResponse.error("League Administrator not found")
+
+            active_league = league_admin.active_league
+
             payload = {
-                "has_league": True
+                "has_league": active_league is not None,
+                "league_meta": active_league.to_meta_json() if active_league else None
             }
+
             return ApiResponse.success(payload=payload)
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+        
+class LeagueResourceController:
+    @staticmethod
+    def create_league_resources():
+        try:
+            data = request.get_json()
+            league_id = data.get('league_id')
+            courts = data.get('league_courts', [])
+            referees = data.get('league_referees', [])
+
+            if not league_id:
+                raise ValueError("league_id is required")
+
+            existing = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            if existing:
+                raise ValueError("Resources already exist for this league")
+
+            resource = LeagueResourceModel(
+                league_id=league_id,
+                league_courts=courts,
+                league_referees=referees
+            )
+
+            db.session.add(resource)
+            db.session.commit()
+
+            return ApiResponse.success(
+                payload=resource.to_json(),
+                message="League resources created successfully."
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+
+    @staticmethod
+    def update_league_resources(league_id: str):
+        try:
+            data = request.get_json()
+            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+
+            if not resource:
+                return ApiResponse.error(f"No league resources found for league_id '{league_id}'", status_code=404)
+
+            resource.copy_with(
+                league_courts=data.get("league_courts"),
+                league_referees=data.get("league_referees"),
+                skip_none=True,
+                strict_types=False
+            )
+
+            db.session.commit()
+            return ApiResponse.success(
+                payload=resource.to_json(),
+                message="League resources updated successfully."
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+
+    @staticmethod
+    def get_league_resources(league_id: str):
+        try:
+            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            if not resource:
+                return ApiResponse.error("League resources not found", status_code=404)
+
+            return ApiResponse.success(payload=resource.to_json())
+
+        except Exception as e:
+            return ApiResponse.error(str(e))
+
+    @staticmethod
+    def delete_league_resources(league_id: str):
+        try:
+            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            if not resource:
+                return ApiResponse.error("League resources not found", status_code=404)
+
+            db.session.delete(resource)
+            db.session.commit()
+
+            return ApiResponse.success(message="League resources deleted successfully.")
+
         except Exception as e:
             db.session.rollback()
             return ApiResponse.error(str(e))
