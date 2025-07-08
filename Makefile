@@ -1,3 +1,3 @@
 run:
 	. venv/bin/activate && \
-	gunicorn --worker-class eventlet -w 2 -b localhost:5000 wsgi:app --access-logfile - --log-level debug
+	gunicorn --worker-class eventlet -w 2 -b 0.0.0.0:5000 wsgi:app --access-logfile - --log-level debug
