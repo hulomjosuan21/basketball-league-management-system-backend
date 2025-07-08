@@ -71,7 +71,6 @@ class LeagueControllers:
             start_date = form.get('start_date')
             league_rules = form.get('league_rules')
             status = form.get('status')
-            sponsors = form.get('sponsors')
             categories_raw = form.get('categories')
             banner_image = request.files.get('banner_image')
 
@@ -111,7 +110,6 @@ class LeagueControllers:
                 start_date=datetime.fromisoformat(start_date),
                 league_rules=league_rules,
                 status=status,
-                sponsors=sponsors,
             )
 
             if full_url:
@@ -119,6 +117,14 @@ class LeagueControllers:
 
             db.session.add(league)
             db.session.flush()
+
+            resource = LeagueResourceModel(
+                league_id=league.league_id,
+                league_courts=[],
+                league_referees=[],
+                league_sponsors=[]
+            )
+            db.session.add(resource)
 
             for cat in categories:
                 category = LeagueCategoryModel(
@@ -141,7 +147,7 @@ class LeagueControllers:
         except Exception as e:
             db.session.rollback()
             import traceback
-            traceback.print_exc() 
+            traceback.print_exc()
             return ApiResponse.error(f"Failed to create league: {str(e)}")
         
     async def upload_league_images(self):
@@ -389,6 +395,7 @@ class LeagueResourceController:
             league_id = data.get('league_id')
             courts = data.get('league_courts', [])
             referees = data.get('league_referees', [])
+            sponsors = data.get('league_sponsors', [])
 
             if not league_id:
                 raise ValueError("league_id is required")
@@ -400,7 +407,8 @@ class LeagueResourceController:
             resource = LeagueResourceModel(
                 league_id=league_id,
                 league_courts=courts,
-                league_referees=referees
+                league_referees=referees,
+                league_sponsors=sponsors
             )
 
             db.session.add(resource)
@@ -419,6 +427,7 @@ class LeagueResourceController:
     def update_league_resources(league_id: str):
         try:
             data = request.get_json()
+            print(f"Data: {data}")
             resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
 
             if not resource:
@@ -427,6 +436,7 @@ class LeagueResourceController:
             resource.copy_with(
                 league_courts=data.get("league_courts"),
                 league_referees=data.get("league_referees"),
+                league_sponsors=data.get("league_sponsors"),
                 skip_none=True,
                 strict_types=False
             )

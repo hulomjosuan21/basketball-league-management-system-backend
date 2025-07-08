@@ -18,6 +18,7 @@ class LeagueResourceModel(db.Model, UpdatableMixin):
 
     league_courts = db.Column(JSONB, nullable=True)
     league_referees = db.Column(JSONB, nullable=True)
+    league_sponsors = db.Column(JSONB, nullable=True)
 
     def to_json(self):
         return {
@@ -25,6 +26,7 @@ class LeagueResourceModel(db.Model, UpdatableMixin):
             "league_id": self.league_id,
             "league_courts": self.league_courts or [],
             "league_referees": self.league_referees or [],
+            "league_sponsors": self.league_sponsors or [],
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat()
         }
@@ -64,8 +66,6 @@ class LeagueModel(db.Model):
     season_year = db.Column(db.Integer, nullable=False, default=datetime.now().year)
     league_rules = db.Column(db.Text, nullable=False)
     
-    sponsors = db.Column(db.Text, nullable=True)
-
     # many to one
     league_administrator = db.relationship(
         'LeagueAdministratorModel',
@@ -132,7 +132,6 @@ class LeagueModel(db.Model):
             "season_year": self.season_year,
             "categories": [assoc.to_json() for assoc in self.categories] if self.categories else [],
             "league_rules": self.league_rules,
-            "sponsors": self.sponsors,
             "league_administrator": self.league_administrator.to_json() if self.league_administrator else None,
             "league_teams": [assoc.to_json() for assoc in self.league_teams] if self.league_teams else [],
             "created_at": self.created_at.isoformat(),
