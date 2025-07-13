@@ -112,14 +112,13 @@ class LeagueModel(db.Model):
             "league_title": self.league_title,
             "status": self.status,
         }
-
+    
     def to_json(self) -> dict:
         return {
             "league_id": self.league_id,
             "league_administrator_id": self.league_administrator_id,
             "league_title": self.league_title,
             "league_budget": float(self.league_budget),
-            "league_budget": self.league_budget,
             "league_description": self.league_description,
             "status": str(self.status),
             "registration_deadline": self.registration_deadline.isoformat() if self.registration_deadline else None,
@@ -133,7 +132,7 @@ class LeagueModel(db.Model):
             "categories": [assoc.to_json() for assoc in self.categories] if self.categories else [],
             "league_rules": self.league_rules,
             "league_administrator": self.league_administrator.to_json() if self.league_administrator else None,
-            "league_teams": [assoc.to_json() for assoc in self.league_teams] if self.league_teams else [],
+            # "league_teams": [assoc.team_to_json() for assoc in self.league_teams] if self.league_teams else [],
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat()
         }
@@ -143,15 +142,26 @@ class LeagueModel(db.Model):
     updated_at = UpdatedAt(db)
 
     
-class LeagueTeamModel(db.Model):
+class LeagueTeamModel(db.Model, UpdatableMixin):
     __tablename__ = 'league_teams_table'
 
     league_team_id = UUIDGenerator(db, 'league-team')
     team_id = db.Column(db.String, db.ForeignKey('teams_table.team_id'))
-    league_id = db.Column(db.String, db.ForeignKey('leagues_table.league_id'))
+    league_id = db.Column(
+        db.String,
+        db.ForeignKey('leagues_table.league_id', ondelete="CASCADE"),
+        nullable=False
+    )
     category_id = db.Column(db.String, db.ForeignKey('league_categories_table.category_id'))
 
     status = db.Column(db.Enum('Pending', 'Accepted', 'Rejected', name="league_team_status"), default='Pending')
+
+    amount_paid = db.Column(db.Float, nullable=False, default=0.0)
+    payment_status = db.Column(
+        db.Enum('Pending', 'Paid Online', 'Paid On Site', 'Waived', name='league_team_payment_status'),
+        nullable=False,
+        default='Pending'
+    )
 
     wins = db.Column(db.Integer, default=0, nullable=False)
     losses = db.Column(db.Integer, default=0, nullable=False)
@@ -202,6 +212,24 @@ class LeagueTeamModel(db.Model):
             "players": players,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat()
+        }
+    
+    def to_json_for_match(self) -> dict:
+        return {
+            "team_name": self.team.team_name,
+            "team_logo_url": self.team.team_logo_url,
+            "seed_number": None # no set for now
+        }
+
+    def to_json(self) -> dict:
+        return {
+            "league_team_id": self.league_team_id,
+            "team_id": self.team_id,
+            "team_name": self.team.team_name,
+            "team_logo_url": self.team.team_logo_url,
+            "amount_paid": float(self.amount_paid),
+            "payment_status": str(self.payment_status),
+            "status": str(self.status)
         }
     
 class LeaguePlayerModel(db.Model):

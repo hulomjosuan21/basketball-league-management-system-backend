@@ -116,6 +116,8 @@ class FlaskServer:
     
     def init_server(self):
 
+        os.makedirs("temp", exist_ok=True)
+
         self.init_extensions()
         self.init_blueprints()
 

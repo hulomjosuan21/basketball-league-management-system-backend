@@ -81,9 +81,6 @@ class TeamModel(db.Model, UpdatableMixin):
     )
     user = db.relationship('UserModel', back_populates='teams', single_parent=True)
 
-    active_league_id = db.Column(db.String, db.ForeignKey('leagues_table.league_id'))
-    active_league = db.relationship('LeagueModel', uselist=False)
-
     team_name = db.Column(db.String(100), nullable=False)
 
     team_address = db.Column(
@@ -153,7 +150,6 @@ class TeamModel(db.Model, UpdatableMixin):
         return {
             "team_id": self.team_id,
             "user_id": self.user_id,
-            "active_league": self.active_league.to_json() if self.active_league else None,
             "team_name": self.team_name,
             "team_address": self.team_address,
             "contact_number": self.contact_number,

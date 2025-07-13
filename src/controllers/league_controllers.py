@@ -1,18 +1,182 @@
-from flask import request
+from flask import request, send_file, after_this_request
 from src.models.audit_log_model import AuditLogModel
 from src.models.league_administrator_model import LeagueAdministratorModel
 from src.models.league_model import LeagueModel, LeagueCategoryModel, LeaguePlayerModel, LeagueResourceModel, LeagueTeamModel
 from src.models.team_model import PlayerTeamModel, TeamModel
 from src.utils.api_response import ApiResponse
-from src.extensions import db
+from src.extensions import db, docx_league_doc_template_path
 from datetime import datetime
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
+from sqlalchemy import func, desc
 from rapidfuzz.fuzz import ratio
 from src.utils.db_utils import AccountTypeEnum
 from src.utils.file_utils import save_file
+from docxtpl import DocxTemplate
+from src.utils.convert import markdown_to_docx_friendly
+import subprocess
 import asyncio
 import json
+import os
+import uuid
+import traceback
+
+
+class LeagueResourceController:
+    @staticmethod
+    def create_league_resources():
+        try:
+            data = request.get_json()
+            league_id = data.get('league_id')
+            courts = data.get('league_courts', [])
+            referees = data.get('league_referees', [])
+            sponsors = data.get('league_sponsors', [])
+
+            if not league_id:
+                raise ValueError("league_id is required")
+
+            existing = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            if existing:
+                raise ValueError("Resources already exist for this league")
+
+            resource = LeagueResourceModel(
+                league_id=league_id,
+                league_courts=courts,
+                league_referees=referees,
+                league_sponsors=sponsors
+            )
+
+            db.session.add(resource)
+            db.session.commit()
+
+            return ApiResponse.success(
+                payload=resource.to_json(),
+                message="League resources created successfully."
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+
+    @staticmethod
+    def update_league_resources(league_id: str):
+        try:
+            data = request.get_json()
+            print(f"Data: {data}")
+            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+
+            if not resource:
+                raise ValueError(f"No league resources found for league_id '{league_id}'")
+
+            resource.copy_with(
+                league_courts=data.get("league_courts"),
+                league_referees=data.get("league_referees"),
+                league_sponsors=data.get("league_sponsors"),
+                skip_none=True,
+                strict_types=False
+            )
+
+            db.session.commit()
+            return ApiResponse.success(
+                payload=resource.to_json(),
+                message="League resources updated successfully."
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+
+    @staticmethod
+    def get_league_resources(league_id: str):
+        try:
+            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            if not resource:
+                raise ValueError("League resources not found")
+
+            return ApiResponse.success(payload=resource.to_json())
+
+        except Exception as e:
+            return ApiResponse.error(str(e))
+
+    @staticmethod
+    def delete_league_resources(league_id: str):
+        try:
+            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            if not resource:
+                return ApiResponse.error("League resources not found", status_code=404)
+
+            db.session.delete(resource)
+            db.session.commit()
+
+            return ApiResponse.success(message="League resources deleted successfully.")
+
+        except Exception as e:
+            db.session.rollback()
+            return ApiResponse.error(str(e))
+            
+    @staticmethod
+    def generate_league_pdf():
+        try:
+            BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+            TEMP_DIR = os.path.join(BASE_DIR, "temp")
+            os.makedirs(TEMP_DIR, exist_ok=True)
+
+            template = DocxTemplate(docx_league_doc_template_path)
+
+            md_description = """
+                # League Details
+
+                Welcome to the **Bogoballers League**!
+
+                ## Requirements
+
+                - Must be 18+
+                - Must register online
+                - Bring ID on game day
+
+                1. Register
+                2. Wait for approval
+                3. Pay the entrance fee
+            """
+            context = {
+                "league_title": "Josuan",
+                "league_description": markdown_to_docx_friendly(md_description)
+            }
+
+            print("Final context:", context)
+
+            file_id = uuid.uuid4().hex
+            filled_docx = os.path.join(TEMP_DIR, f"{file_id}.docx")
+            filled_pdf = os.path.join(TEMP_DIR, f"{file_id}.pdf")
+
+            template.render(context)
+            template.save(filled_docx)
+
+            subprocess.run([
+                "libreoffice",
+                "--headless",
+                "--convert-to", "pdf",
+                "--outdir", TEMP_DIR,
+                filled_docx
+            ], check=True)
+
+            @after_this_request
+            def cleanup(response):
+                try:
+                    os.remove(filled_docx)
+                    os.remove(filled_pdf)
+                except Exception as cleanup_err:
+                    print("Cleanup failed:", cleanup_err)
+                return response
+
+            return send_file(
+                filled_pdf,
+                mimetype="application/pdf",
+                as_attachment=False
+            )
+
+        except Exception as e:
+            print("PDF generation failed:", e)
+            return {"error": "PDF generation failed"}, 500
 
 class LeagueControllers:
     def filter_leagues_by_organization_details(self):
@@ -72,7 +236,9 @@ class LeagueControllers:
             league_rules = form.get('league_rules')
             status = form.get('status')
             categories_raw = form.get('categories')
-            banner_image = request.files.get('banner_image')
+
+            banner_image_file = request.files.get('banner_image')
+            banner_image_url = form.get('banner_image') if not banner_image_file else None
 
             required_fields = [
                 league_administrator_id,
@@ -96,9 +262,12 @@ class LeagueControllers:
             if not isinstance(categories, list) or not categories:
                 return ApiResponse.error("At least one category is required.")
 
-            full_url = None
-            if banner_image:
-                full_url = await save_file(banner_image, 'banners', request, 'supabase')
+            # 🔽 handle image
+            banner_url = None
+            if banner_image_file:
+                banner_url = await save_file(banner_image_file, 'banners', request, 'supabase')
+            elif banner_image_url:
+                banner_url = banner_image_url  # accept as string
 
             league = LeagueModel(
                 league_administrator_id=league_administrator_id,
@@ -112,8 +281,8 @@ class LeagueControllers:
                 status=status,
             )
 
-            if full_url:
-                league.banner_url = full_url
+            if banner_url:
+                league.banner_url = banner_url
 
             db.session.add(league)
             db.session.flush()
@@ -298,6 +467,8 @@ class LeagueControllers:
             self.league_administrator_id = league.league_administrator_id
             self.league_title = league.league_title
 
+            league_admin_org_name = league.league_administrator.organization_name
+
             existing_league_team = LeagueTeamModel.query.filter_by(
                 league_id=league_id,
                 team_id=team_id
@@ -320,7 +491,7 @@ class LeagueControllers:
             league_players = await self.check_players_is_allowed_or_not(team_id)
             db.session.add_all(league_players)
             db.session.commit()
-            return ApiResponse.success(message="Wait for the administrator to accept your team")
+            return ApiResponse.success(message=f"Wait for the {league_admin_org_name} league administrator to accept your team")
         except Exception as e:
             db.session.rollback()
             return ApiResponse.error(str(e))
@@ -387,94 +558,53 @@ class LeagueControllers:
             db.session.rollback()
             return ApiResponse.error(str(e))
         
-class LeagueResourceController:
+class LeagueTeamController:
     @staticmethod
-    def create_league_resources():
+    def fetch_league_team():
         try:
-            data = request.get_json()
-            league_id = data.get('league_id')
-            courts = data.get('league_courts', [])
-            referees = data.get('league_referees', [])
-            sponsors = data.get('league_sponsors', [])
+            league_id = request.args.get('league_id')
+            category_id = request.args.get('category_id')
 
-            if not league_id:
-                raise ValueError("league_id is required")
+            if not league_id or not category_id:
+                return ApiResponse.error("Missing league_id or category_id")
 
-            existing = LeagueResourceModel.query.filter_by(league_id=league_id).first()
-            if existing:
-                raise ValueError("Resources already exist for this league")
-
-            resource = LeagueResourceModel(
+            teams = LeagueTeamModel.query.filter_by(
                 league_id=league_id,
-                league_courts=courts,
-                league_referees=referees,
-                league_sponsors=sponsors
-            )
+                category_id=category_id
+            ).order_by(desc(LeagueTeamModel.created_at)).all()
 
-            db.session.add(resource)
-            db.session.commit()
+            if not teams:
+                return ApiResponse.success(payload=[])
 
-            return ApiResponse.success(
-                payload=resource.to_json(),
-                message="League resources created successfully."
-            )
+            team_data = [team.to_json() for team in teams]
+
+            return ApiResponse.success(payload=team_data)
 
         except Exception as e:
-            db.session.rollback()
             return ApiResponse.error(str(e))
-
+        
     @staticmethod
-    def update_league_resources(league_id: str):
+    def update_league_team():
         try:
             data = request.get_json()
-            print(f"Data: {data}")
-            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
+            league_team_id = data.get("league_team_id")
 
-            if not resource:
-                return ApiResponse.error(f"No league resources found for league_id '{league_id}'", status_code=404)
+            if not league_team_id:
+                return ApiResponse.error("Missing league_team_id")
 
-            resource.copy_with(
-                league_courts=data.get("league_courts"),
-                league_referees=data.get("league_referees"),
-                league_sponsors=data.get("league_sponsors"),
-                skip_none=True,
-                strict_types=False
-            )
+            league_team = LeagueTeamModel.query.get(league_team_id)
+
+            if not league_team:
+                return ApiResponse.error("League team not found")
+
+            updatable_fields = {k: v for k, v in data.items() if k != "league_team_id"}
+
+            league_team.copy_with(**updatable_fields)
 
             db.session.commit()
-            return ApiResponse.success(
-                payload=resource.to_json(),
-                message="League resources updated successfully."
-            )
+
+            return ApiResponse.success()
 
         except Exception as e:
             db.session.rollback()
-            return ApiResponse.error(str(e))
-
-    @staticmethod
-    def get_league_resources(league_id: str):
-        try:
-            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
-            if not resource:
-                return ApiResponse.error("League resources not found", status_code=404)
-
-            return ApiResponse.success(payload=resource.to_json())
-
-        except Exception as e:
-            return ApiResponse.error(str(e))
-
-    @staticmethod
-    def delete_league_resources(league_id: str):
-        try:
-            resource = LeagueResourceModel.query.filter_by(league_id=league_id).first()
-            if not resource:
-                return ApiResponse.error("League resources not found", status_code=404)
-
-            db.session.delete(resource)
-            db.session.commit()
-
-            return ApiResponse.success(message="League resources deleted successfully.")
-
-        except Exception as e:
-            db.session.rollback()
-            return ApiResponse.error(str(e))
+            return ApiResponse.error(f"Error updating league team: {str(e)}")

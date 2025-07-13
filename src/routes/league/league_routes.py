@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-from src.controllers.league_controllers import LeagueControllers, LeagueResourceController
+from src.controllers.league_controllers import LeagueControllers, LeagueResourceController, LeagueTeamController
 from src.controllers.league_categories import league_categories
 league_bp = Blueprint('league', __name__,url_prefix='/league')
 
@@ -26,3 +26,8 @@ league_bp.get('/resource/<string:league_id>')(LeagueResourceController.get_leagu
 league_bp.post('/resource/create')(LeagueResourceController.create_league_resources)
 league_bp.put('/resource/update/<string:league_id>')(LeagueResourceController.update_league_resources)
 league_bp.delete('/resource/delete/<string:league_id>')(LeagueResourceController.delete_league_resources)
+
+league_bp.get('/league-team')(LeagueTeamController.fetch_league_team)
+league_bp.put('/league-team/update')(LeagueTeamController.update_league_team)
+
+league_bp.get('/generate-pdf')(LeagueResourceController.generate_league_pdf)
