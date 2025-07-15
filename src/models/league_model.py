@@ -223,6 +223,8 @@ class LeagueTeamModel(db.Model, UpdatableMixin):
 
     def to_json(self) -> dict:
         return {
+            "email": self.team.user.email,
+            "contact_number": self.team.user.contact_number,
             "league_team_id": self.league_team_id,
             "team_id": self.team_id,
             "team_name": self.team.team_name,

@@ -20,7 +20,7 @@ load_dotenv()
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 docx_league_doc_template_path = os.path.join(BASE_DIR, 'assets', 'docs', 'league-doc-template.docx')
-
+logo_one = os.path.join(BASE_DIR, 'assets', 'logo.png')
 print(f"Base Directory: {BASE_DIR}")
 limiter = Limiter(
     key_func=get_remote_address,

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 14px;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      text-align: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .header img {
+      width: 80px;
+      margin-bottom: 12px;
+    }
+
+    .header h2 {
+      margin: 0;
+      font-size: 20px;
+      color: #333;
+    }
+
+    .details {
+      margin-top: 24px;
+    }
+
+    .details p {
+      margin: 8px 0;
+      color: #444;
+    }
+
+    .details .label {
+      font-weight: 600;
+      color: #222;
+    }
+
+    .footer {
+      margin-top: 32px;
+      font-size: 12px;
+      text-align: center;
+      color: #888;
+      border-top: 1px solid #eee;
+      padding-top: 12px;
+    }
+
+    .highlight {
+      font-weight: bold;
+      color: #007BFF;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="{{ logo_url }}" alt="SK Logo" />
+      <h2>Payment Receipt</h2>
+    </div>
+
+    <div class="details">
+      <p><span class="label">Receipt ID:</span> <span class="highlight">{{ receipt_id }}</span></p>
+      <p><span class="label">Amount Paid:</span> <span class="highlight">{{ amount }}</span></p>
+      <p><span class="label">Date:</span> {{ date }}</p>
+    </div>
+
+    <div class="footer">
+      Thank you for your payment.<br>
+      Basketball League – BogoBallers
+    </div>
+  </div>
+</body>
+</html>

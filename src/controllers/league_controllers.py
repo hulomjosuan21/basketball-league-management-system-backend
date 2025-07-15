@@ -1,4 +1,5 @@
 from flask import request, send_file, after_this_request
+from src.receipt_sender.send_receipt import ReceiptSender
 from src.models.audit_log_model import AuditLogModel
 from src.models.league_administrator_model import LeagueAdministratorModel
 from src.models.league_model import LeagueModel, LeagueCategoryModel, LeaguePlayerModel, LeagueResourceModel, LeagueTeamModel
@@ -19,7 +20,6 @@ import json
 import os
 import uuid
 import traceback
-
 
 class LeagueResourceController:
     @staticmethod
@@ -265,7 +265,7 @@ class LeagueControllers:
             # 🔽 handle image
             banner_url = None
             if banner_image_file:
-                banner_url = await save_file(banner_image_file, 'banners', request, 'supabase')
+                banner_url = await save_file(banner_image_file, 'banners', request)
             elif banner_image_url:
                 banner_url = banner_image_url  # accept as string
 
@@ -332,9 +332,9 @@ class LeagueControllers:
 
             tasks = []
             if banner_image:
-                tasks.append(save_file(banner_image, 'banners', request, 'supabase'))
+                tasks.append(save_file(banner_image, 'banners', request))
             if trophy_image:
-                tasks.append(save_file(trophy_image, 'trophies', request, 'supabase'))
+                tasks.append(save_file(trophy_image, 'trophies', request))
 
             results = await asyncio.gather(*tasks)
 
@@ -584,10 +584,9 @@ class LeagueTeamController:
             return ApiResponse.error(str(e))
         
     @staticmethod
-    def update_league_team():
+    def update_league_team(league_team_id: str):
         try:
             data = request.get_json()
-            league_team_id = data.get("league_team_id")
 
             if not league_team_id:
                 return ApiResponse.error("Missing league_team_id")
@@ -597,14 +596,27 @@ class LeagueTeamController:
             if not league_team:
                 return ApiResponse.error("League team not found")
 
-            updatable_fields = {k: v for k, v in data.items() if k != "league_team_id"}
+            old_payment_status = league_team.payment_status
 
+            updatable_fields = {k: v for k, v in data.items() if k != "league_team_id"}
             league_team.copy_with(**updatable_fields)
 
             db.session.commit()
+
+            paid_statuses = ["Paid Online", "Paid On Site", "Waived"]
+            if (
+                league_team.payment_status in paid_statuses and 
+                old_payment_status != league_team.payment_status
+            ):
+                receipt_sender = ReceiptSender()
+                receipt_sender.send_receipt(
+                    to_email="hulomjosuan@gmail.com",
+                    amount=f"₱{league_team.amount_paid:,.2f}"
+                )
 
             return ApiResponse.success()
 
         except Exception as e:
             db.session.rollback()
+            traceback.print_exc()
             return ApiResponse.error(f"Error updating league team: {str(e)}")

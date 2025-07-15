@@ -5,7 +5,7 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY")
-    SQLALCHEMY_DATABASE_URI = os.getenv("SUPABASE_DATABASE_URL")
+    SQLALCHEMY_DATABASE_URI = "postgresql://postgres.elsjyrcrdjfniwclmecx:vCoqurkDPfNjBrG2@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SUPABASE_URL = os.getenv('SUPABASE_URL')

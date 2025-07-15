@@ -28,6 +28,6 @@ league_bp.put('/resource/update/<string:league_id>')(LeagueResourceController.up
 league_bp.delete('/resource/delete/<string:league_id>')(LeagueResourceController.delete_league_resources)
 
 league_bp.get('/league-team')(LeagueTeamController.fetch_league_team)
-league_bp.put('/league-team/update')(LeagueTeamController.update_league_team)
+league_bp.put('/league-team/update/<string:league_team_id>')(LeagueTeamController.update_league_team)
 
 league_bp.get('/generate-pdf')(LeagueResourceController.generate_league_pdf)
