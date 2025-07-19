@@ -111,6 +111,7 @@ class LeagueModel(db.Model):
             "league_id": self.league_id,
             "league_title": self.league_title,
             "status": self.status,
+            "banner_url": self.banner_url if self.banner_url else None
         }
     
     def to_json(self) -> dict:
@@ -221,6 +222,18 @@ class LeagueTeamModel(db.Model, UpdatableMixin):
             "seed_number": None # no set for now
         }
 
+    def to_json_for_match(self) -> dict:
+        return {
+            "email": self.team.user.email,
+            "contact_number": self.team.user.contact_number,
+            "league_team_id": self.league_team_id,
+            "team_id": self.team_id,
+            "team_name": self.team.team_name,
+            "team_logo_url": self.team.team_logo_url,
+            "status": str(self.status),
+            "category_id": self.category_id
+        }
+
     def to_json(self) -> dict:
         return {
             "email": self.team.user.email,
@@ -231,7 +244,8 @@ class LeagueTeamModel(db.Model, UpdatableMixin):
             "team_logo_url": self.team.team_logo_url,
             "amount_paid": float(self.amount_paid),
             "payment_status": str(self.payment_status),
-            "status": str(self.status)
+            "status": str(self.status),
+            "category_id": self.category_id
         }
     
 class LeaguePlayerModel(db.Model):
@@ -312,6 +326,14 @@ class LeagueCategoryModel(db.Model):
         passive_deletes=True
     )
 
+    def to_json_for_admin(self) -> dict:
+        return {
+            "category_id": self.category_id,
+            "league_id": self.league_id,
+            "category_name": self.category_name,
+            "entrance_fee_amount": float(self.entrance_fee_amount) if self.entrance_fee_amount else 0.0,
+        }
+
     def to_json(self) -> dict:
         return {
             "category_id": self.category_id,
@@ -326,4 +348,5 @@ class LeagueCategoryModel(db.Model):
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
+    
 

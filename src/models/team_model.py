@@ -6,6 +6,7 @@ class PlayerTeamModel(db.Model):
     __tablename__ = 'player_team_table'
 
     player_team_id = UUIDGenerator(db, 'player-team')
+
     player_id = db.Column(db.String, db.ForeignKey('players_table.player_id'), nullable=False)
     team_id = db.Column(db.String, db.ForeignKey('teams_table.team_id', ondelete="CASCADE"), nullable=False)
     is_ban = db.Column(db.Boolean, nullable=False, default=False)
@@ -14,15 +15,8 @@ class PlayerTeamModel(db.Model):
         db.UniqueConstraint('player_id', 'team_id', name='unique_player_team'),
     )
 
-    teams_where_captain = db.relationship(
-        'TeamModel',
-        back_populates='team_captain',
-        foreign_keys='TeamModel.team_captain_id'
-    )
-    
-    # One-to-Many
+    # Relationships
     player = db.relationship('PlayerModel', back_populates='my_teams')
-    # One-to-Many
     team = db.relationship(
         'TeamModel',
         back_populates='players',
@@ -30,7 +24,7 @@ class PlayerTeamModel(db.Model):
     )
 
     is_accepted = db.Column(
-        db.Enum('Pending', 'Accepted', 'Rejected', 'Invited',name="player_is_accepted"),
+        db.Enum('Pending', 'Accepted', 'Rejected', 'Invited', name="player_is_accepted"),
         nullable=False,
         default="Pending"
     )
@@ -38,36 +32,15 @@ class PlayerTeamModel(db.Model):
     created_at = CreatedAt(db)
     updated_at = UpdatedAt(db)
 
-    def to_json_for_team(self) -> dict:
-        is_team_captain = any(team.team_id == self.team_id for team in self.teams_where_captain)
-        return {
-            "player_team_id": self.player_team_id,
-            "user_id": self.player.user_id,
-            "player_id": self.player_id,
-            "full_name": self.player.full_name,
-            "gender": self.player.gender,
-            "contact_number": self.player.user.contact_number,
-            "birth_date": self.player.birth_date,
-            "player_address": self.player.player_address,
-            "jersey_name": self.player.jersey_name,
-            "jersey_number": self.player.jersey_number,
-            "position": self.player.position,
-            "profile_image_url": self.player.profile_image_url,
-            "is_ban": self.is_ban,
-            "is_team_captain": is_team_captain
-        }
-
     def to_json(self) -> dict:
         return {
             "player_team_id": self.player_team_id,
             "player_id": self.player_id,
             "team_id": self.team_id,
-            "player": self.player.to_json() if self.player else None,
-            "team": self.team.to_json() if self.team else None,
+            "player": self.player.to_json_for_team() if self.player else None,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
-
 
 class TeamModel(db.Model, UpdatableMixin):
     __tablename__ = 'teams_table'
@@ -82,22 +55,9 @@ class TeamModel(db.Model, UpdatableMixin):
     user = db.relationship('UserModel', back_populates='teams', single_parent=True)
 
     team_name = db.Column(db.String(100), nullable=False)
-
-    team_address = db.Column(
-        db.String(250),
-        nullable=False
-    )
-
-    contact_number = db.Column(
-        db.String(15),
-        nullable=False,
-    )
-    
-    team_motto = db.Column(
-        db.String(100),
-        nullable=True
-    )
-    
+    team_address = db.Column(db.String(250), nullable=False)
+    contact_number = db.Column(db.String(15), nullable=False)
+    team_motto = db.Column(db.String(100), nullable=True)
     team_logo_url = db.Column(db.String, nullable=False)
     championships_won = db.Column(db.Integer, nullable=False, default=0)
     coach_name = db.Column(db.String(100), nullable=False)
@@ -105,26 +65,21 @@ class TeamModel(db.Model, UpdatableMixin):
 
     total_wins = db.Column(db.Integer, default=0, nullable=False)
     total_losses = db.Column(db.Integer, default=0, nullable=False)
-
     is_recruiting = db.Column(db.Boolean, nullable=False, default=False)
-
     team_category = db.Column(db.String(100), nullable=True)
 
-    team_captain_id = db.Column(
-        db.String,
-        db.ForeignKey('player_team_table.player_team_id', use_alter=True, name='fk_team_captain_id', deferrable=True),
-        nullable=True
-    )
+    team_captain_id = db.Column(db.String, nullable=True)
 
-    team_captain = db.relationship(
-        'PlayerTeamModel',
-        uselist=False,
-        primaryjoin="TeamModel.team_captain_id == PlayerTeamModel.player_team_id"
-    )
-    
-    def players_to_json_list(self):
-        return [player.to_json_for_team() for player in self.players] if self.players else []
-    
+    # @property
+    # def team_captain(self):
+    #     from src.models.player_team_model import PlayerTeamModel  # Avoid circular import
+    #     if self.team_captain_id:
+    #         return db.session.get(PlayerTeamModel, self.team_captain_id)
+    #     return None
+
+    # def players_to_json_list(self):
+    #     return [player.to_json_for_team() for player in self.players] if self.players else []
+
     def to_json_for_notification(self, detail):
         return {
             'team_id': self.team_id,
@@ -144,9 +99,8 @@ class TeamModel(db.Model, UpdatableMixin):
         }
 
     def to_json(self):
-        # players = [player.to_json_for_team() for player in self.players] if self.players else []
-        players = [player.to_json_for_team() for player in self.players if player.is_accepted == 'Accepted'] if self.players else []
-        team_captain = self.team_captain.to_json_for_team() if self.team_captain else None
+        # team_captain = self.team_captain.to_json_for_team() if self.team_captain else None
+
         return {
             "team_id": self.team_id,
             "user_id": self.user_id,
@@ -159,19 +113,19 @@ class TeamModel(db.Model, UpdatableMixin):
             "coach_name": self.coach_name,
             "team_category": self.team_category if self.team_category else None,
             "assistant_coach_name": self.assistant_coach_name if self.assistant_coach_name else None,
-            "players": players,
+            # "team_captain": team_captain,
             "total_wins": self.total_wins,
             "is_recruiting": self.is_recruiting,
             "total_losses": self.total_losses,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
-    
+
     players = db.relationship(
         'PlayerTeamModel',
         back_populates='team',
         cascade='all, delete-orphan',
-        foreign_keys=[PlayerTeamModel.team_id],
+        foreign_keys='PlayerTeamModel.team_id',
         passive_deletes=True
     )
 
@@ -185,5 +139,3 @@ class TeamModel(db.Model, UpdatableMixin):
 
     created_at = CreatedAt(db)
     updated_at = UpdatedAt(db)
-
-    

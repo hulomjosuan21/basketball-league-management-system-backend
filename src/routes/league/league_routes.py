@@ -21,6 +21,7 @@ league_bp.delete('/delete/<string:league_id>')(leagueControllers.delete_league)
 
 league_bp.patch('/accept-team')(leagueControllers.accept_team)
 league_bp.patch('/league-team/set-status/<string:league_team_id>')(leagueControllers.set_league_team_status)
+league_bp.patch('/update/banner/<league_id>')(LeagueControllers.update_league_banner)
 
 league_bp.get('/resource/<string:league_id>')(LeagueResourceController.get_league_resources)
 league_bp.post('/resource/create')(LeagueResourceController.create_league_resources)
@@ -31,3 +32,4 @@ league_bp.get('/league-team')(LeagueTeamController.fetch_league_team)
 league_bp.put('/league-team/update/<string:league_team_id>')(LeagueTeamController.update_league_team)
 
 league_bp.get('/generate-pdf')(LeagueResourceController.generate_league_pdf)
+league_bp.get('/current/categories/<string:league_id>')(leagueControllers.fetch_league_categories)

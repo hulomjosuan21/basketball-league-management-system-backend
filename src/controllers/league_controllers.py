@@ -1,6 +1,6 @@
 from flask import request, send_file, after_this_request
+from src.services.cloudinary_service import CloudinaryService
 from src.receipt_sender.send_receipt import ReceiptSender
-from src.models.audit_log_model import AuditLogModel
 from src.models.league_administrator_model import LeagueAdministratorModel
 from src.models.league_model import LeagueModel, LeagueCategoryModel, LeaguePlayerModel, LeagueResourceModel, LeagueTeamModel
 from src.models.team_model import PlayerTeamModel, TeamModel
@@ -20,6 +20,8 @@ import json
 import os
 import uuid
 import traceback
+
+from src.utils.model_utils import update_model_image
 
 class LeagueResourceController:
     @staticmethod
@@ -175,8 +177,7 @@ class LeagueResourceController:
             )
 
         except Exception as e:
-            print("PDF generation failed:", e)
-            return {"error": "PDF generation failed"}, 500
+            return ApiResponse.error(e)
 
 class LeagueControllers:
     def filter_leagues_by_organization_details(self):
@@ -262,12 +263,11 @@ class LeagueControllers:
             if not isinstance(categories, list) or not categories:
                 return ApiResponse.error("At least one category is required.")
 
-            # 🔽 handle image
             banner_url = None
             if banner_image_file:
-                banner_url = await save_file(banner_image_file, 'banners', request)
+                banner_url = await CloudinaryService.upload_file(banner_image_file, '/league/banners')
             elif banner_image_url:
-                banner_url = banner_image_url  # accept as string
+                banner_url = banner_image_url
 
             league = LeagueModel(
                 league_administrator_id=league_administrator_id,
@@ -440,14 +440,6 @@ class LeagueControllers:
                 else:
                     league_player = self.add_player_to_league(player_team_id)
                     league_players.append(league_player)
-                    AuditLogModel.log_action(
-                        audit_by_id=self.league_administrator_id,
-                        audit_by_type=AccountTypeEnum.LOCAL_ADMINISTRATOR.value,
-                        audit_to_id=player.player.player_id,
-                        audit_to_type=AccountTypeEnum.PLAYER.value,
-                        action="Accepted",
-                        details=f"Accepted to participate to League {self.league_title}"
-                    )
 
             return league_players
         except Exception as e:
@@ -526,15 +518,6 @@ class LeagueControllers:
 
             details = f"Your Team {league_team.team.team_name} has been {status}"
 
-            AuditLogModel.log_action(
-                audit_by_id=league_team.league.league_administrator_id,
-                audit_by_type=AccountTypeEnum.LOCAL_ADMINISTRATOR.value,
-                audit_to_id=league_team.team.user_id,
-                audit_to_type=AccountTypeEnum.TEAM_CREATOR.value,
-                action=status,
-                details=details
-            )
-
             return ApiResponse.success(payload=details)
         except Exception as e:
             db.session.rollback()
@@ -542,7 +525,7 @@ class LeagueControllers:
         
     def fetch_league_meta(self, league_administrator_id: str):
         try:
-            league_admin = db.session.get(LeagueAdministratorModel, league_administrator_id)
+            league_admin = LeagueAdministratorModel.query.get(league_administrator_id)
             if not league_admin:
                 return ApiResponse.error("League Administrator not found")
 
@@ -555,8 +538,24 @@ class LeagueControllers:
 
             return ApiResponse.success(payload=payload)
         except Exception as e:
-            db.session.rollback()
             return ApiResponse.error(str(e))
+
+    def fetch_league_categories(self, league_id: str):
+        try:
+            categories = LeagueCategoryModel.query.filter_by(league_id=league_id).all()
+            return ApiResponse.success(payload=[category.to_json_for_admin() for category in categories])
+        except Exception as e:
+            return ApiResponse.error(str(e))
+    
+    @staticmethod
+    def update_league_banner(league_id):
+        return update_model_image(
+            model=LeagueModel,
+            record_id=league_id,
+            id_field="league_id",
+            image_field="banner_url",
+            folder="league/banners"
+        )
         
 class LeagueTeamController:
     @staticmethod

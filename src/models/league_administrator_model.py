@@ -36,11 +36,6 @@ class LeagueAdministratorModel(db.Model):
         nullable=False
     )
 
-    contact_number = db.Column(
-        db.String(15),
-        nullable=True
-    )
-
     organization_address = db.Column(
         db.String(250),
         nullable=False

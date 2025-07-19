@@ -396,3 +396,20 @@ class TeamControllers:
         except Exception as e:
             db.session.rollback()
             return ApiResponse.error(str(e), 500)
+        
+    def fetch_team_players(self, team_id):
+        try:
+            is_accepted = request.args.get('is_accepted')
+
+            query = PlayerTeamModel.query.filter_by(team_id=team_id)
+
+            if is_accepted:
+                query = query.filter(PlayerTeamModel.is_accepted == is_accepted)
+
+            players = query.all()
+
+            return ApiResponse.success(
+                payload=[player.to_json() for player in players]
+            )
+        except Exception as e:
+            return ApiResponse.error(str(e), 500)

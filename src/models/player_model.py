@@ -60,6 +60,28 @@ class PlayerModel(db.Model, UpdatableMixin):
     created_at = CreatedAt(db)
     updated_at = UpdatedAt(db)
 
+    def to_json_for_team(self) -> dict:
+        return {
+            "player_id": self.player_id,
+            "user_id": self.user_id,
+            "full_name": self.full_name,
+            "gender": self.gender,
+            "birth_date": self.birth_date.isoformat(),
+            "player_address": self.player_address,
+            "jersey_name": self.jersey_name,
+            "jersey_number": float(self.jersey_number) if self.jersey_number is not None else None,
+            "position": self.position,
+            "height_in": float(self.height_in) if self.height_in is not None else None,
+            "weight_kg": float(self.weight_kg) if self.weight_kg is not None else None,
+            "games_played": int(self.games_played),
+            "points_scored": int(self.points_scored),
+            "assists": int(self.assists),
+            "rebounds": int(self.rebounds),
+            "profile_image_url": self.profile_image_url,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
     def to_json(self) -> dict:
         return {
             "player_id": self.player_id,

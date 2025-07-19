@@ -15,5 +15,6 @@ team_bp.post('/new')(teamControllers.create_team)
 team_bp.post('/<string:team_id>/players')(teamControllers.add_player)
 team_bp.put('/<string:player_team_id>/captain')(teamControllers.set_team_captain)
 
+team_bp.get('/players/<string:team_id>')(teamControllers.fetch_team_players)
 team_bp.put('/update/<string:team_id>')(teamControllers.update_team)
 team_bp.delete('/player/<string:player_team_id>/remove')(teamControllers.remove_player)

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from flask_jwt_extended import create_access_token
+from src.services.cloudinary_service import CloudinaryService
 from src.models.league_administrator_model import LeagueAdministratorModel
 from src.services.email_services import send_verification_email
 from src.errors.errors import AuthException
@@ -110,20 +111,22 @@ class EntityControllers:
         
     async def create_league_administrator(self):
         try:
-            email = request.form.get('user[email]')
-            password_str = request.form.get('user[password_str]')
-            account_type = request.form.get('user[account_type]')
-            contact_number = request.form.get('user[contact_number]')
+            email = request.form.get('email')
+            password_str = request.form.get('password_str')
+            account_type_enum = AccountTypeEnum.LOCAL_ADMINISTRATOR
+            account_type = account_type_enum.value
+            contact_number = request.form.get('contact_number')
 
             organization_type = request.form.get('organization_type')
             organization_name = request.form.get('organization_name')
             organization_address = request.form.get('organization_address')
 
-            organization_logo = request.files.get('organization_logo')
+            organization_logo_file = request.files.get('organization_logo')
+            organization_logo_str = request.form.get('organization_logo')
 
             if not all([email, password_str, account_type, organization_name, contact_number, organization_address]):
                 raise ValueError("All fields must be provided and not empty.")
-            
+
             user = UserModel(
                 email=email,
                 contact_number=contact_number,
@@ -137,21 +140,24 @@ class EntityControllers:
                 organization_name=organization_name,
                 organization_address=organization_address,
             )
-            
-            full_url = await save_file(organization_logo, 'images', request, 'supabase')
-            league_administrator.organization_logo_url = full_url
+
+            if organization_logo_file:
+                url = await CloudinaryService.upload_file(organization_logo_file, '/league-admin/organization-logos')
+                league_administrator.organization_logo_url = url
+            elif organization_logo_str:
+                league_administrator.organization_logo_url = organization_logo_str
 
             db.session.add(user)
             db.session.add(league_administrator)
             db.session.commit()
 
             verify_link = f"/user/{user.user_id}"
-
             await send_verification_email(email, verify_link, request)
 
             message = "A verification link has been sent to your email. Please verify your account before logging in."
 
-            return ApiResponse.success(redirect="/administrator/login/sreen", message=message,status_code=201)
+            return ApiResponse.success(redirect="/administrator/login/sreen", message=message, status_code=201)
+
         except Exception as e:
             db.session.rollback()
             return ApiResponse.error(e)

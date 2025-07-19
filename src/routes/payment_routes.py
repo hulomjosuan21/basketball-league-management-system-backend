@@ -1,11 +1,10 @@
 from flask import Blueprint
+from src.services.submission_service import SubmissionPaymentController
 
-from src.services.payment_service import PaymentSerice
+payment_bp = Blueprint("payment", __name__, url_prefix="/payment")
+controller = SubmissionPaymentController()
 
-payment_bp = Blueprint('payment', __name__, url_prefix='/payment')
-
-paymentSerice = PaymentSerice()
-
-payment_bp.post('/create-payment')(paymentSerice.create_payment)
-payment_bp.get('/after-success')(paymentSerice.after_success)
-payment_bp.get('/after-cancel')(paymentSerice.after_cancel)
+payment_bp.post("/start")(controller.start_submission_payment)
+payment_bp.get("/submission-success")(controller.handle_success)
+payment_bp.get("/submission-cancelled")(controller.handle_cancelled)
+payment_bp.post("/webhook")(controller.webhook)

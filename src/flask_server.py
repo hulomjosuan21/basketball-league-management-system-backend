@@ -12,10 +12,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 from src.routes.test_route import test_bp
 from src.routes.user.user_route import user_bp
 from src.routes.notification_routes import notification_bp
-from src.routes.file_routes import FileRoutes
+from src.routes.file_routes import file_bp
 from src.routes.player.player_route import player_bp
 from src.routes.team_creator.team_creator_route import team_creator_bp 
 from src.routes.league.league_routes import league_bp
+from src.routes.league.match_routes import match_bp
 from src.routes.entity_routes import entity_bp
 from src.routes.team.team_routes import team_bp
 from src.routes.payment_routes import payment_bp
@@ -24,7 +25,6 @@ from src.models.user_model import *
 from src.models.league_administrator_model import *
 from src.models.league_model import *
 from src.models.team_model import *
-from src.models.audit_log_model import *
 from src.models.payment_model import *
 from src.models.notification_model import *
 from src.models.images_model import *
@@ -96,21 +96,17 @@ class FlaskServer:
         self.server.get("/organization-types")(organization_type_list)
         self.server.get("/barangay-list")(barangay_list)
 
-        self.server.get('/log/<string:audit_id>')(AuditLogModel.fetch_log)
-        self.server.get('/logs/<string:audit_to_id>')(AuditLogModel.fetch_logs_for)
-        
         self.server.register_blueprint(player_bp)
         self.server.register_blueprint(team_creator_bp)
         self.server.register_blueprint(payment_bp)
         self.server.register_blueprint(entity_bp)
         self.server.register_blueprint(notification_bp)
-
+        self.server.register_blueprint(match_bp)
         self.server.register_blueprint(league_bp)
         self.server.register_blueprint(team_bp)
         self.server.register_blueprint(user_bp)
+        self.server.register_blueprint(file_bp)
         self.server.register_blueprint(test_bp)
-        file_routes = FileRoutes(self.server)
-        self.server.register_blueprint(file_routes.get_blueprint())
         
         print(f"APP URL MAP: {self.server.url_map}")
     
