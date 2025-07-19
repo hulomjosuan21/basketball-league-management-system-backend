@@ -32,7 +32,7 @@ class MatchModel(db.Model):
 
     # 🧾 Details
     category = db.Column(db.String(50), nullable=True)
-    status = db.Column(db.String(50), nullable=False, default="scheduled")
+    status = db.Column(db.String(50), nullable=False, default="Scheduled")
     match_notes = db.Column(db.Text, nullable=True)
     is_featured = db.Column(db.Boolean, default=False)
 
