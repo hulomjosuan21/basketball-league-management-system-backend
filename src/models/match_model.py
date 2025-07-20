@@ -1,82 +1,102 @@
-from src.models.team_model import TeamModel
-from src.extensions import db, ph
-from enum import Enum
+from src.models.league_model import LeagueTeamModel
+from src.extensions import db
 from sqlalchemy.dialects.postgresql import JSONB
-import uuid
-from src.utils.db_utils import AccountTypeEnum, CreatedAt, UUIDGenerator, UpdatedAt, create_account_type_enum
-import re
+from src.utils.db_utils import CreatedAt, UUIDGenerator, UpdatedAt
 
 class MatchModel(db.Model):
     __tablename__ = "matches_table"
 
-    # 🔑 Core Identification
-    match_id = UUIDGenerator(db, "match")
-    league_id = db.Column(db.String, db.ForeignKey("leagues.league_id"), nullable=True)
-    division = db.Column(db.String(100), nullable=True)
+    match_id = UUIDGenerator(db,"match")
 
-    # 👥 Teams
-    home_team_id = db.Column(db.String, db.ForeignKey("teams.team_id"), nullable=False)
-    away_team_id = db.Column(db.String, db.ForeignKey("teams.team_id"), nullable=False)
+    league_id = db.Column(db.String, nullable=False)
+    division_id = db.Column(db.String, nullable=True)
 
-    home_team_score = db.Column(db.String, nullable=True)
-    away_team_score = db.Column(db.String, nullable=True)
+    home_team_id = db.Column(db.String, nullable=False)
+    away_team_id = db.Column(db.String, nullable=False)
 
-    winner_team_id = db.Column(db.String, db.ForeignKey("teams.team_id"), nullable=True)
-    loser_team_id = db.Column(db.String, db.ForeignKey("teams.team_id"), nullable=True)
+    @property
+    def home_team(self) -> dict:
+        team = LeagueTeamModel.query.get(self.home_team_id)
+        return team.to_json_for_match()
 
-    # 📅 Schedule
-    scheduled_date = db.Column(db.DateTime(timezone=True), nullable=False)
-    duration_minutes = db.Column(db.String, nullable=False)
-    court = db.Column(db.String(100), nullable=False)
-    referees = db.Column(JSONB, nullable=True)
+    @property
+    def away_team(self) -> dict:
+        team = LeagueTeamModel.query.get(self.away_team_id)
+        return team.to_json_for_match()
 
-    # 🧾 Details
-    category = db.Column(db.String(50), nullable=True)
-    status = db.Column(db.String(50), nullable=False, default="Scheduled")
+    home_team_score = db.Column(db.Integer, nullable=True)
+    away_team_score = db.Column(db.Integer, nullable=True)
+
+    winner_team_id = db.Column(db.String, nullable=True)
+    loser_team_id = db.Column(db.String, nullable=True)
+
+    scheduled_date = db.Column(db.DateTime(timezone=True), nullable=True)
+    duration_minutes = db.Column(db.Integer, default=40)
+
+    court = db.Column(db.String, nullable=True)
+    referees = db.Column(db.ARRAY(db.String), default=[])
+
+    category = db.Column(db.String, nullable=True)
+    status = db.Column(db.String, default="Scheduled")
+
     match_notes = db.Column(db.Text, nullable=True)
     is_featured = db.Column(db.Boolean, default=False)
 
-    # 🧭 Bracket Navigation
-    round_number = db.Column(db.String, nullable=True)
-    bracket_side = db.Column(db.String(20), nullable=False)
-    bracket_position = db.Column(db.String(50), nullable=True)
+    round_number = db.Column(db.Integer, nullable=True)
+    bracket_side = db.Column(db.String, nullable=True)
+    bracket_position = db.Column(db.String, nullable=True)
 
-    previous_match_ids = db.Column(JSONB, default=list)
-    next_match_id = db.Column(db.String, db.ForeignKey("matches.match_id"), nullable=True)
-    next_match_slot = db.Column(db.String(20), nullable=False)
+    previous_match_ids = db.Column(db.ARRAY(db.String), default=[])
+    next_match_id = db.Column(db.String, nullable=True)
+    next_match_slot = db.Column(db.String, nullable=True)  # home_team/away_team
 
-    loser_next_match_id = db.Column(db.String, db.ForeignKey("matches.match_id"), nullable=True)
-    loser_next_match_slot = db.Column(db.String(20), nullable=True)
+    loser_next_match_id = db.Column(db.String, nullable=True)
+    loser_next_match_slot = db.Column(db.String, nullable=True)
 
-    # 🛠️ Generation
-    pairing_method = db.Column(db.String(50), nullable=False)
-    generated_by = db.Column(db.String(100), nullable=True)
+    pairing_method = db.Column(db.String, nullable=True)  # manual/random/seeded
+    generated_by = db.Column(db.String, nullable=True)
+    display_name = db.Column(db.String, nullable=True)
 
-    # 🎯 UI Helpers
-    display_name = db.Column(db.String(100), nullable=True)
     is_final = db.Column(db.Boolean, default=False)
     is_third_place = db.Column(db.Boolean, default=False)
 
-    # 📆 Audit
     created_at = CreatedAt(db)
     updated_at = UpdatedAt(db)
 
-    # 🔁 Relationships (no reverse)
-    @property
-    def home_team(self):
-        return db.session.get(TeamModel, self.home_team_id)
-
-    @property
-    def away_team(self):
-        return db.session.get(TeamModel, self.away_team_id)
-
-    @property
-    def winner_team(self):
-        return db.session.get(TeamModel, self.winner_team_id) if self.winner_team_id else None
-
-    @property
-    def loser_team(self):
-        return db.session.get(TeamModel, self.loser_team_id) if self.loser_team_id else None
-
-    next_match = db.relationship("MatchModel", remote_side=[match_id], foreign_keys=[next_match_id], post_update=True)
-    loser_next_match = db.relationship("MatchModel", remote_side=[match_id], foreign_keys=[loser_next_match_id], post_update=True)
+    def to_dict(self):
+        return {
+            "match_id": self.match_id,
+            "league_id": self.league_id,
+            "division_id": self.division_id,
+            "home_team_id": self.home_team_id,
+            "away_team_id": self.away_team_id,
+            "home_team": self.home_team,
+            "away_team": self.away_team,
+            "home_team_score": self.home_team_score,
+            "away_team_score": self.away_team_score,
+            "winner_team_id": self.winner_team_id,
+            "loser_team_id": self.loser_team_id,
+            "scheduled_date": self.scheduled_date.isoformat() if self.scheduled_date else None,
+            "duration_minutes": self.duration_minutes,
+            "court": self.court,
+            "referees": self.referees,
+            "category": self.category,
+            "status": self.status,
+            "match_notes": self.match_notes,
+            "is_featured": self.is_featured,
+            "round_number": self.round_number,
+            "bracket_side": self.bracket_side,
+            "bracket_position": self.bracket_position,
+            "previous_match_ids": self.previous_match_ids,
+            "next_match_id": self.next_match_id,
+            "next_match_slot": self.next_match_slot,
+            "loser_next_match_id": self.loser_next_match_id,
+            "loser_next_match_slot": self.loser_next_match_slot,
+            "pairing_method": self.pairing_method,
+            "generated_by": self.generated_by,
+            "display_name": self.display_name,
+            "is_final": self.is_final,
+            "is_third_place": self.is_third_place,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }

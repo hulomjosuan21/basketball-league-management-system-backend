@@ -214,13 +214,6 @@ class LeagueTeamModel(db.Model, UpdatableMixin):
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat()
         }
-    
-    def to_json_for_match(self) -> dict:
-        return {
-            "team_name": self.team.team_name,
-            "team_logo_url": self.team.team_logo_url,
-            "seed_number": None # no set for now
-        }
 
     def to_json_for_match(self) -> dict:
         return {

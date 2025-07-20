@@ -22,6 +22,7 @@ from src.routes.team.team_routes import team_bp
 from src.routes.payment_routes import payment_bp
 from src.models.player_model import *
 from src.models.user_model import *
+from src.models.match_model import *
 from src.models.league_administrator_model import *
 from src.models.league_model import *
 from src.models.team_model import *
