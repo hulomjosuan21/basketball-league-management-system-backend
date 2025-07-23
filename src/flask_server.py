@@ -26,7 +26,6 @@ from src.models.match_model import *
 from src.models.league_administrator_model import *
 from src.models.league_model import *
 from src.models.team_model import *
-from src.models.payment_model import *
 from src.models.notification_model import *
 from src.models.images_model import *
 import logging

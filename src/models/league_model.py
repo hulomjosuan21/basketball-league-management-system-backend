@@ -85,9 +85,6 @@ class LeagueModel(db.Model):
         cascade='all, delete-orphan'
     )
 
-    payments = db.relationship('PaymentModel', back_populates='league', cascade="all, delete-orphan")
-
-
     def copy_with(self, *, skip_none=True, strict_types=False, **kwargs):
         for key, value in kwargs.items():
             if not hasattr(self, key):
