@@ -41,6 +41,7 @@ class AccountTypeEnum(Enum):
     TEAM_CREATOR = "Team_Creator"
     LOCAL_ADMINISTRATOR = "League_Administrator_Local"
     LGU_ADMINISTRATOR = "League_Administrator_LGU"
+    TEAM_MANAGER = "Team_Manager"
     SYSTEM = "System"
 
 def create_account_type_enum(db):

@@ -1,32 +1,12 @@
-from src.controllers.match_controllers import MatchController, MatchSchedulerController, MatchTeamsController
+from src.controllers.match_controllers import MatchController
 from flask import Blueprint
 
 match_bp = Blueprint("match", __name__, url_prefix="/match")
 
-match_bp.get('/teams/<string:league_id>/<string:category_id>')(MatchTeamsController.fetch_accepted_teams_by_category)
+match_controller = MatchController()
 
-match_view = MatchController.as_view("match")
-scheduler_view = MatchSchedulerController.as_view("match_scheduler")
-
-match_bp.add_url_rule("/games", view_func=match_view, methods=["GET", "POST"])
-match_bp.add_url_rule("/games/<string:match_id>", view_func=match_view, methods=["GET", "PUT", "DELETE"])
-
-match_bp.add_url_rule(
-    "/schedule/<string:league_id>/<string:category_id>",
-    view_func=scheduler_view,
-    methods=["POST"]
-)
-
-match_bp.add_url_rule(
-    "/all/scheduled/<string:league_id>",
-    view_func=MatchController().get_scheduled,
-    methods=["GET"],
-    endpoint="get_scheduled_by_league"
-)
-
-match_bp.add_url_rule(
-    "/all/scheduled/<string:league_id>/<string:division_id>",
-    view_func=MatchController().get_scheduled,
-    methods=["GET"],
-    endpoint="get_scheduled_by_league_and_division"
-)
+match_bp.post('/check-exists')(MatchController.has_existing_matches)
+match_bp.post('/generate')(match_controller.generate_versus_teams)
+match_bp.post("/rematch")(match_controller.rematch_versus_teams)
+match_bp.post('/all')(match_controller.get_all_matches)
+match_bp.put('/schedule')(match_controller.schedule_match)

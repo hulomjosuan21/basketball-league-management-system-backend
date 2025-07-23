@@ -1,5 +1,3 @@
-# match_scheduler.py
-
 from datetime import datetime, timedelta
 import random
 
@@ -39,7 +37,7 @@ class MatchSchedulerService:
                     "home_team_id": home["league_team_id"],
                     "away_team_id": away["league_team_id"],
                     "duration_minutes": options.get("durationMinutes", 40),
-                    "category": options.get("category", "Regular Season"),
+                    "category": options.get("category"),
                     "division_id": options.get("division_id"),
                     "league_id": options["league_id"],
                     "round_number": round_num + 1,

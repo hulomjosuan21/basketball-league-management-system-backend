@@ -1,15 +1,21 @@
-from src.models.league_model import LeagueTeamModel
+from src.models.league_model import LeagueCategoryModel, LeagueTeamModel
 from src.extensions import db
 from sqlalchemy.dialects.postgresql import JSONB
 from src.utils.db_utils import CreatedAt, UUIDGenerator, UpdatedAt
+from src.utils.mixins import UpdatableMixin
 
-class MatchModel(db.Model):
+class MatchModel(db.Model, UpdatableMixin):
     __tablename__ = "matches_table"
 
     match_id = UUIDGenerator(db,"match")
 
     league_id = db.Column(db.String, nullable=False)
     division_id = db.Column(db.String, nullable=True)
+
+    @property
+    def division(self) -> dict:
+        c = LeagueCategoryModel.query.get(self.division_id)
+        return c.to_json_for_admin()
 
     home_team_id = db.Column(db.String, nullable=False)
     away_team_id = db.Column(db.String, nullable=False)
@@ -36,8 +42,8 @@ class MatchModel(db.Model):
     court = db.Column(db.String, nullable=True)
     referees = db.Column(db.ARRAY(db.String), default=[])
 
-    category = db.Column(db.String, nullable=True)
-    status = db.Column(db.String, default="Scheduled")
+    category = db.Column(db.Enum('Regular Season', 'Exhibition', 'Elimination', 'Quarterfinal', 'Semifinal', 'Final', 'Third place', 'Practice', name='match_category'), nullable=False, default='Elimination')
+    status = db.Column(db.Enum('Unscheduled', 'Scheduled', 'In Progress', 'Completed', 'Cancelled', 'Postponed', name='match_status'), nullable=False, default='Unscheduled')
 
     match_notes = db.Column(db.Text, nullable=True)
     is_featured = db.Column(db.Boolean, default=False)
@@ -60,6 +66,18 @@ class MatchModel(db.Model):
     is_final = db.Column(db.Boolean, default=False)
     is_third_place = db.Column(db.Boolean, default=False)
 
+    __table_args__ = (
+        db.UniqueConstraint(
+            'league_id',
+            'category',
+            'division_id',
+            'round_number',
+            'home_team_id',
+            'away_team_id',
+            name='unique_match_per_category_and_division'
+        ),
+    )
+
     created_at = CreatedAt(db)
     updated_at = UpdatedAt(db)
 
@@ -68,6 +86,7 @@ class MatchModel(db.Model):
             "match_id": self.match_id,
             "league_id": self.league_id,
             "division_id": self.division_id,
+            "division": self.division,
             "home_team_id": self.home_team_id,
             "away_team_id": self.away_team_id,
             "home_team": self.home_team,
@@ -80,8 +99,8 @@ class MatchModel(db.Model):
             "duration_minutes": self.duration_minutes,
             "court": self.court,
             "referees": self.referees,
-            "category": self.category,
-            "status": self.status,
+            "category": str(self.category),
+            "status": str(self.status),
             "match_notes": self.match_notes,
             "is_featured": self.is_featured,
             "round_number": self.round_number,
