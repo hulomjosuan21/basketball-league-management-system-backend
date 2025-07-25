@@ -104,7 +104,7 @@ class EntityControllers:
 
             message = "A verification link has been sent to your email. Please verify your account before logging in."
             
-            return ApiResponse.success(redirect="/client/login/screen",message=message,status_code=201)
+            return ApiResponse.success(message=message,status_code=201)
         except Exception as e:
             db.session.rollback()
             return ApiResponse.error(e)
@@ -178,19 +178,16 @@ class EntityControllers:
 
             if not user.is_verified:
                 raise AuthException("Your account is not verified.", 403)
-            
+
             account_type = str(user.account_type)
 
             match account_type:
                 case AccountTypeEnum.PLAYER.value:
                     entity = PlayerModel.query.filter_by(user_id=user.user_id).first()
-                    redirect = '/player/home/screen'
-                case AccountTypeEnum.TEAM_CREATOR.value:
+                    redirect = '/player/main/screen'
+                case AccountTypeEnum.TEAM_MANAGER.value:
                     entity = user
-                    redirect = '/team-creator/home/screen'
-                case AccountTypeEnum.LOCAL_ADMINISTRATOR.value | AccountTypeEnum.LGU_ADMINISTRATOR.value:
-                    entity = LeagueAdministratorModel.query.filter_by(user_id=user.user_id).first()
-                    redirect = '/administrator/main/screen'
+                    redirect = '/team-manager/main/screen'
                 case _:
                     raise ValueError(f"Unknown account type {account_type}")
 
@@ -208,7 +205,6 @@ class EntityControllers:
 
             payload = {
                 'access_token': access_token,
-                'entity': entity.to_json(),
                 'account_type': account_type,
                 'user_id': user.user_id
             }
@@ -223,7 +219,10 @@ class EntityControllers:
                 set_access_cookies(response, access_token)
 
             return response
+
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return ApiResponse.error(e)
     
     @cross_origin(origins=["http://localhost:3000"], supports_credentials=True)
