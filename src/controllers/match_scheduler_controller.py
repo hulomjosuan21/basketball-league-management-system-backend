@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import math
 import random
 
 class MatchSchedulerService:
@@ -52,5 +53,86 @@ class MatchSchedulerService:
             rotating = teamList[1:]
             rotating = [rotating[-1]] + rotating[:-1]
             teamList = [fixed] + rotating
+
+        return matches
+    
+    @staticmethod
+    def generateKnockoutMatches(teams, options):
+        if not isinstance(teams, list) or len(teams) < 2:
+            raise ValueError("At least 2 teams are required for knockout format.")
+
+        random.shuffle(teams)
+
+        team_count = len(teams)
+        next_power_of_2 = 2 ** math.ceil(math.log2(team_count))
+        number_of_byes = next_power_of_2 - team_count
+
+        teams += [None] * number_of_byes
+
+        matches = []
+        round_number = 1
+        match_number = 1
+
+        for i in range(0, len(teams), 2):
+            home = teams[i]
+            away = teams[i + 1]
+
+            if home is None or away is None:
+                continue
+
+            match = {
+                "home_team_id": home["league_team_id"],
+                "away_team_id": away["league_team_id"],
+                "duration_minutes": options.get("durationMinutes", 40),
+                "category": options.get("category"),
+                "division_id": options.get("division_id"),
+                "league_id": options["league_id"],
+                "round_number": round_number,
+                "bracket_side": "left" if match_number % 2 == 1 else "right",
+                "bracket_position": f"{round_number}-{match_number}"
+            }
+
+            matches.append(match)
+            match_number += 1
+
+        return matches
+
+    @staticmethod
+    def generateDoubleEliminationMatches(teams, options):
+        if not isinstance(teams, list) or len(teams) < 4:
+            raise ValueError("At least 4 teams are required for double elimination format.")
+
+        random.shuffle(teams)
+
+        team_count = len(teams)
+        next_power_of_2 = 2 ** math.ceil(math.log2(team_count))
+        number_of_byes = next_power_of_2 - team_count
+
+        teams += [None] * number_of_byes
+
+        matches = []
+        round_number = 1
+        match_number = 1
+
+        for i in range(0, len(teams), 2):
+            home = teams[i]
+            away = teams[i + 1]
+
+            if home is None or away is None:
+                continue
+
+            match = {
+                "home_team_id": home["league_team_id"],
+                "away_team_id": away["league_team_id"],
+                "duration_minutes": options.get("durationMinutes", 40),
+                "category": options.get("category"),
+                "division_id": options.get("division_id"),
+                "league_id": options["league_id"],
+                "round_number": round_number,
+                "bracket_side": "winner_upper",
+                "bracket_position": f"{round_number}-{match_number}"
+            }
+            matches.append(match)
+            match_number += 1
 
         return matches

@@ -4,10 +4,62 @@ from sqlalchemy.dialects.postgresql import JSONB
 from src.utils.db_utils import CreatedAt, UUIDGenerator, UpdatedAt
 from src.utils.mixins import UpdatableMixin
 
+class MatchStageModel(db.Model):
+    __tablename__ = "match_stages_table"
+
+    stage_id = UUIDGenerator(db, "stage")
+
+    league_id = db.Column(db.String, nullable=False)
+    division_id = db.Column(db.String, nullable=True)
+
+    category = db.Column(db.String, nullable=False)
+    pairing_method = db.Column(db.String, nullable=True)
+
+    is_active = db.Column(db.Boolean, default=True)
+    is_completed = db.Column(db.Boolean, default=False)
+
+    top_n_teams = db.Column(db.Integer, nullable=True)
+    auto_generate = db.Column(db.Boolean, default=False)
+
+    format_type = db.Column(db.Enum('Round Robin', 'Knockout', 'Double Elimination', name='format_type'), nullable=False, default="Round Robin")
+
+    match_options = db.Column(db.JSON, nullable=True)
+
+    vs_teams_generated = db.Column(db.Boolean, default=False)
+
+    created_by = db.Column(db.String, nullable=True)
+
+    created_at = CreatedAt(db)
+    updated_at = UpdatedAt(db)
+
+    def to_dict(self):
+        return {
+            "stage_id": self.stage_id,
+            "league_id": self.league_id,
+            "division_id": self.division_id,
+            "category": self.category,
+            "pairing_method": self.pairing_method,
+            "is_active": self.is_active,
+            "is_completed": self.is_completed,
+            "top_n_teams": self.top_n_teams,
+            "format_type": self.format_type,
+            "auto_generate": self.auto_generate,
+            "match_options": self.match_options,
+            "vs_teams_generated": self.vs_teams_generated,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "matches": [match.to_dict() for match in self.matches]
+        }
+
 class MatchModel(db.Model, UpdatableMixin):
     __tablename__ = "matches_table"
 
-    match_id = UUIDGenerator(db,"match")
+    match_id = UUIDGenerator(db, "match")
+
+    # Foreign key to MatchStage
+    stage_id = db.Column(db.String, db.ForeignKey("match_stages_table.stage_id", ondelete="CASCADE"), nullable=True)
+    stage = db.relationship("MatchStageModel", backref=db.backref("matches", cascade="all, delete-orphan"))
 
     league_id = db.Column(db.String, nullable=False)
     division_id = db.Column(db.String, nullable=True)
@@ -42,8 +94,14 @@ class MatchModel(db.Model, UpdatableMixin):
     court = db.Column(db.String, nullable=True)
     referees = db.Column(db.ARRAY(db.String), default=[])
 
-    category = db.Column(db.Enum('Regular Season', 'Exhibition', 'Elimination', 'Quarterfinal', 'Semifinal', 'Final', 'Third place', 'Practice', name='match_category'), nullable=False, default='Elimination')
-    status = db.Column(db.Enum('Unscheduled', 'Scheduled', 'In Progress', 'Completed', 'Cancelled', 'Postponed', name='match_status'), nullable=False, default='Unscheduled')
+    category = db.Column(db.Enum(
+        'Regular Season', 'Exhibition', 'Elimination',
+        'Quarterfinal', 'Semifinal', 'Final', 'Third place', 'Practice',
+        name='match_category'), nullable=False, default='Elimination')
+
+    status = db.Column(db.Enum(
+        'Unscheduled', 'Scheduled', 'In Progress', 'Completed', 'Cancelled', 'Postponed',
+        name='match_status'), nullable=False, default='Unscheduled')
 
     match_notes = db.Column(db.Text, nullable=True)
     is_featured = db.Column(db.Boolean, default=False)
@@ -84,6 +142,7 @@ class MatchModel(db.Model, UpdatableMixin):
     def to_dict(self):
         return {
             "match_id": self.match_id,
+            "stage_id": self.stage_id,
             "league_id": self.league_id,
             "division_id": self.division_id,
             "division": self.division,

@@ -1,11 +1,31 @@
 from src.controllers.match_scheduler_controller import MatchSchedulerService
-from src.models.match_model import MatchModel
+from src.models.match_model import MatchModel, MatchStageModel
 from src.models.league_model import LeagueTeamModel
 from src.utils.api_response import ApiResponse
 from flask import request, jsonify
 from flask.views import MethodView
 from src.extensions import db
 from datetime import datetime
+
+class MatchStageController:
+    def get_match_stages(self,league_id, division_id):
+        try:
+            if not league_id or not division_id:
+                return ApiResponse.error("league_id and division_id are required")
+
+            stages = MatchStageModel.query.filter_by(
+                league_id=league_id,
+                division_id=division_id
+            ).order_by(MatchStageModel.created_at.desc()).all()
+
+            return ApiResponse.success(
+                payload=[s.to_dict() for s in stages]
+            )
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return ApiResponse.error(e)
 
 class MatchController():
     @staticmethod
@@ -32,59 +52,7 @@ class MatchController():
             import traceback
             traceback.print_exc()
             return ApiResponse.error(str(e)), 500
-        
-    def rematch_versus_teams(self):
-        try:
-            data = request.get_json()
-            options = data.get("options")
 
-            league_id = options.get("league_id")
-            division_id = options.get("division_id")
-            category = options.get("category")
-
-            if not all([league_id, division_id, category]):
-                return ApiResponse.error("Missing required parameters."), 400
-
-            MatchModel.query.filter_by(
-                league_id=league_id,
-                division_id=division_id,
-                category=category
-            ).delete()
-
-            db.session.commit()
-
-            raw_teams = LeagueTeamModel.query.filter_by(
-                league_id=league_id,
-                category_id=division_id,
-                status="Accepted"
-            ).all()
-
-            teams = [team.to_json_for_match() for team in raw_teams]
-
-            if not teams:
-                return ApiResponse.error("No accepted teams found."), 400
-
-            matches = MatchSchedulerService.generateRoundRobinMatches(teams, options)
-
-            created_matches = []
-            for match_data in matches:
-                match = MatchModel(**match_data)
-                db.session.add(match)
-                created_matches.append(match)
-
-            db.session.commit()
-            total = len(created_matches)
-
-            return ApiResponse.success(
-                message=f"{total} matchups successfully regenerated.",
-                payload={"exists": total > 0, "total": total}
-            )
-
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return ApiResponse.error(str(e)), 500
-        
     def schedule_match(self):
         data = request.get_json()
 
@@ -117,16 +85,94 @@ class MatchController():
             db.session.rollback()
             return ApiResponse.error(str(e)), 500
 
+    def rematch_versus_teams(self):
+        try:
+            data = request.get_json()
+            options = data.get("options")
+            stage_id = data.get("stage_id")
+
+            if not stage_id:
+                raise ValueError("stage_id is required.")
+
+            stage = MatchStageModel.query.get(stage_id)
+            if not stage:
+                raise ValueError("Stage not found.")
+
+            league_id = stage.league_id
+            division_id = stage.division_id
+            category = stage.category
+
+            if not options:
+                raise ValueError("Match options are required.")
+
+            format_type = options.get("format_type", "Round Robin")
+
+            if stage.format_type != format_type:
+                stage.format_type = format_type
+
+            if stage.match_options != options:
+                stage.match_options = options
+
+            MatchModel.query.filter_by(
+                league_id=league_id,
+                division_id=division_id,
+                category=category,
+                stage_id=stage_id
+            ).delete()
+
+            db.session.commit()
+
+            raw_teams = LeagueTeamModel.query.filter_by(
+                league_id=league_id,
+                category_id=division_id,
+                status="Accepted"
+            ).all()
+
+            teams = [team.to_json_for_match() for team in raw_teams]
+            if not teams:
+                raise ValueError("No accepted teams found.")
+
+            if format_type == "Knockout":
+                matches = MatchSchedulerService.generateKnockoutMatches(teams, options)
+            elif format_type == "Double Elimination":
+                matches = MatchSchedulerService.generateDoubleEliminationMatches(teams, options)
+            else:
+                matches = MatchSchedulerService.generateRoundRobinMatches(teams, options)
+
+            created_matches = []
+            for match_data in matches:
+                match_data["stage_id"] = stage_id
+                match = MatchModel(**match_data)
+                db.session.add(match)
+                created_matches.append(match)
+
+            db.session.commit()
+
+            total = len(created_matches)
+            return ApiResponse.success(
+                message=f"{total} matchups successfully regenerated.",
+                payload={"exists": total > 0, "total": total}
+            )
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return ApiResponse.error("An unexpected error occurred."), 500
+
     def generate_versus_teams(self):
         try:
             data = request.get_json()
             options = data.get("options")
-
-            league_id = options.get('league_id')
-            division_id = options.get('division_id')
+            format_type = options.get("format_type", "Round Robin")
 
             if not options:
-                return jsonify({"error": "Options are required"}), 400
+                raise ValueError("Missing options for match generation.")
+
+            league_id = options.get("league_id")
+            division_id = options.get("division_id")
+
+            if not league_id or not division_id:
+                raise ValueError("Missing required parameters: league_id or division_id")
 
             raw_teams = LeagueTeamModel.query.filter_by(
                 league_id=league_id,
@@ -137,62 +183,54 @@ class MatchController():
             teams = [team.to_json_for_match() for team in raw_teams]
 
             if not teams:
-                return jsonify({"error": "No accepted teams found"}), 400
+                raise ValueError("No accepted teams found for the specified league and division.")
 
-            matches = MatchSchedulerService.generateRoundRobinMatches(teams, options)
+            new_stage = MatchStageModel(
+                league_id=league_id,
+                division_id=division_id,
+                category=options.get("category", "Elimination"),
+                pairing_method=options.get("pairing_method", "random"),
+                auto_generate=True,
+                vs_teams_generated=False,
+                match_options=options,
+                created_by=options.get("generated_by"),
+                format_type=format_type
+            )
+            db.session.add(new_stage)
+            db.session.flush()
+
+            if format_type == "Knockout":
+                matches_data = MatchSchedulerService.generateKnockoutMatches(teams, options)
+            elif format_type == "Double Elimination":
+                matches_data = MatchSchedulerService.generateDoubleEliminationMatches(teams, options)
+            else:
+                matches_data = MatchSchedulerService.generateRoundRobinMatches(teams, options)
 
             created_matches = []
-            for match_data in matches:
+            for match_data in matches_data:
                 match = MatchModel(**match_data)
+                match.stage_id = new_stage.stage_id
                 db.session.add(match)
                 created_matches.append(match)
 
+            new_stage.vs_teams_generated = True
+
             db.session.commit()
+
             total = len(created_matches)
             return ApiResponse.success(
-                message=f"{total} matchups successfully generated." if total else "No matchups were generated.",
-                payload={"exists": total > 0, "total": total}
+                message=f"{total} matchups successfully generated.",
+                payload={
+                    "exists": total > 0,
+                    "total": total,
+                    "stage_id": new_stage.stage_id
+                }
             )
+
         except Exception as e:
             import traceback
             traceback.print_exc()
             return ApiResponse.error(e)
-
-    def get(self, match_id=None):
-        if match_id:
-            match = MatchModel.query.get(match_id)
-            if not match:
-                return jsonify({"error": "Match not found"}), 404
-            return jsonify(match.to_dict())
-
-        matches = MatchModel.query.all()
-        return jsonify([m.to_dict() for m in matches])
-
-    def post(self):
-        data = request.get_json()
-        match = MatchModel(**data)
-        db.session.add(match)
-        db.session.commit()
-        return jsonify(match.to_dict()), 201
-
-    def put(self, match_id):
-        match = MatchModel.query.get(match_id)
-        if not match:
-            return jsonify({"error": "Match not found"}), 404
-
-        data = request.get_json()
-        match.update(data)
-        db.session.commit()
-        return jsonify(match.to_dict())
-
-    def delete(self, match_id):
-        match = MatchModel.query.get(match_id)
-        if not match:
-            return jsonify({"error": "Match not found"}), 404
-
-        db.session.delete(match)
-        db.session.commit()
-        return jsonify({"message": "Match deleted"})
     
     def get_all_matches(self):
         try:
